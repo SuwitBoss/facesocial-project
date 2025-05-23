@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>WebSocket Chat Test</title>
+    <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 600px; margin: 20px auto; }
+        .section { background: #f5f5f5; padding: 15px; margin: 10px 0; border-radius: 5px; }
+        .status { padding: 10px; margin: 10px 0; border-radius: 5px; font-weight: bold; }
+        .connected { background: #c8e6c9; color: #2e7d32; }
+        .disconnected { background: #ffcdd2; color: #c62828; }
+        input { width: 70%; padding: 8px; margin: 5px; }
+        button { padding: 8px 15px; margin: 5px; cursor: pointer; }
+        #log { height: 300px; overflow-y: auto; background: white; border: 1px solid #ddd; padding: 10px; font-family: monospace; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <h1>🧪 WebSocket Chat Test</h1>
+    
+    <div class="section">
+        <h3>🔐 Connection</h3>
+        <input type="text" id="token" placeholder="JWT Token" value="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIyMjdiMzhlOC0wZDZjLTRjOTctOWQ4My0xOWMwODQ3NjhjZDMiLCJpYXQiOjE3NDgwMjA2NjYsImV4cCI6MTc0ODEwNzA2Nn0.uYbR_lOiVjbHFW8cKzmxbEr6mMKebeDUh9oMgnNPC3o">
+        <button onclick="connect()">Connect</button>
+        <button onclick="disconnect()">Disconnect</button>
+        <div id="status" class="status disconnected">Disconnected</div>
+    </div>
+    
+    <div class="section">
+        <h3>💬 Chat Actions</h3>
+        <input type="text" id="conversationId" placeholder="Conversation ID">
+        <button onclick="joinConversation()">Join Conversation</button><br>
+        
+        <input type="text" id="message" placeholder="Message">
+        <button onclick="sendMessage()">Send Message</button><br>
+        
+        <button onclick="getOnlineUsers()">Get Online Users</button>
+        <button onclick="startTyping()">Start Typing</button>
+        <button onclick="stopTyping()">Stop Typing</button>
+    </div>
+    
+    <div class="section">
+        <h3>📋 Event Log</h3>
+        <div id="log"></div>
+        <button onclick="clearLog()">Clear Log</button>
+    </div>
+
+    <script>
+        let socket = null;
+        let currentConversationId = null;
+        
+        function log(message) {
+            const logEl = document.getElementById('log');
+            const time = new Date().toLocaleTimeString();
+            logEl.innerHTML += `[${time}] ${message}\n`;
+            logEl.scrollTop = logEl.scrollHeight;
+        }
+        
+        function updateStatus(message, isConnected) {
+            const statusEl = document.getElementById('status');
+            statusEl.textContent = message;
+            statusEl.className = `status ${isConnected ? 'connected' : 'disconnected'}`;
+        }
+        
+        function connect() {
+            const token = document.getElementById('token').value;
+            if (!token) {
+                alert('Please enter JWT token');
+                return;
+            }
+            
+            log('🔌 Connecting to WebSocket...');
+            
+            socket = io('http://localhost:3005', {
+                auth: { token }
+            });
+            
+            socket.on('connect', () => {
+                log('✅ Connected successfully');
+                updateStatus('Connected', true);
+            });
+            
+            socket.on('disconnect', () => {
+                log('❌ Disconnected');
+                updateStatus('Disconnected', false);
+            });
+            
+            socket.on('connect_error', (error) => {
+                log(`💥 Connection error: ${error.message}`);
+                updateStatus(`Error: ${error.message}`, false);
+            });
+            
+            // Chat events
+            socket.on('conversation_list', (data) => {
+                log(`📋 Received conversation list: ${JSON.stringify(data)}`);
+            });
+            
+            socket.on('online_users', (data) => {
+                log(`👥 Online users: ${JSON.stringify(data)}`);
+            });
+            
+            socket.on('new_message', (data) => {
+                log(`💌 New message: ${JSON.stringify(data)}`);
+            });
+            
+            socket.on('user_typing', (data) => {
+                log(`⌨️ User typing: ${JSON.stringify(data)}`);
+            });
+            
+            socket.on('user_status_changed', (data) => {
+                log(`🔄 User status changed: ${JSON.stringify(data)}`);
+            });
+            
+            socket.on('joined_conversation', (data) => {
+                log(`🚪 Joined conversation: ${JSON.stringify(data)}`);
+                currentConversationId = data.conversationId;
+            });
+            
+            socket.on('recent_messages', (data) => {
+                log(`📜 Recent messages: ${JSON.stringify(data)}`);
+            });
+            
+            socket.on('error', (data) => {
+                log(`❌ Error: ${JSON.stringify(data)}`);
+            });
+        }
+        
+        function disconnect() {
+            if (socket) {
+                socket.disconnect();
+                socket = null;
+                log('🔌 Manually disconnected');
+            }
+        }
+        
+        function joinConversation() {
+            const conversationId = document.getElementById('conversationId').value;
+            if (!conversationId || !socket) {
+                alert('Enter conversation ID and connect first');
+                return;
+            }
+            
+            log(`🚪 Joining conversation: ${conversationId}`);
+            socket.emit('join_conversation', { conversationId });
+        }
+        
+        function sendMessage() {
+            const message = document.getElementById('message').value;
+            if (!message || !currentConversationId || !socket) {
+                alert('Connect and join a conversation first');
+                return;
+            }
+            
+            log(`📤 Sending message: ${message}`);
+            socket.emit('send_message', {
+                conversationId: currentConversationId,
+                content: message,
+                messageType: 'text'
+            });
+            
+            document.getElementById('message').value = '';
+        }
+        
+        function getOnlineUsers() {
+            if (!socket) {
+                alert('Connect first');
+                return;
+            }
+            
+            log('👥 Requesting online users...');
+            socket.emit('get_online_users');
+        }
+        
+        function startTyping() {
+            if (!currentConversationId || !socket) {
+                alert('Join a conversation first');
+                return;
+            }
+            
+            log('⌨️ Start typing...');
+            socket.emit('typing_start', { conversationId: currentConversationId });
+        }
+        
+        function stopTyping() {
+            if (!currentConversationId || !socket) {
+                alert('Join a conversation first');
+                return;
+            }
+            
+            log('⌨️ Stop typing...');
+            socket.emit('typing_stop', { conversationId: currentConversationId });
+        }
+        
+        function clearLog() {
+            document.getElementById('log').innerHTML = '';
+        }
+        
+        // Auto-fill conversation ID from chat creation
+        log('🧪 WebSocket Test Client loaded');
+        log('📝 Steps: 1) Connect 2) Create conversation via REST API 3) Join conversation 4) Send messages');
+    </script>
+</body>
+</html>

@@ -1,0 +1,84 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Conversation {
+  id          String   @id @default(uuid())
+  name        String?  // Group chat name (null for 1:1 chats)
+  type        String   @default("direct") // "direct" or "group"
+  createdBy   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  participants ConversationParticipant[]
+  messages     Message[]
+  
+  @@index([createdBy])
+  @@index([type])
+  @@map("conversations")
+}
+
+model ConversationParticipant {
+  id             String   @id @default(uuid())
+  conversationId String
+  userId         String
+  joinedAt       DateTime @default(now())
+  leftAt         DateTime?
+  lastReadAt     DateTime @default(now())
+  
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  
+  @@unique([conversationId, userId])
+  @@index([userId])
+  @@map("conversation_participants")
+}
+
+model Message {
+  id             String   @id @default(uuid())
+  conversationId String
+  senderId       String
+  content        String
+  messageType    String   @default("text") // "text", "image", "file", "system"
+  attachmentUrl  String?
+  attachmentType String?
+  attachmentSize Int?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  editedAt       DateTime?
+  deletedAt      DateTime?
+  
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  readReceipts   MessageRead[]
+  
+  @@index([conversationId])
+  @@index([senderId])
+  @@index([createdAt])
+  @@map("messages")
+}
+
+model MessageRead {
+  id        String   @id @default(uuid())
+  messageId String
+  userId    String
+  readAt    DateTime @default(now())
+  
+  message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  
+  @@unique([messageId, userId])
+  @@index([userId])
+  @@map("message_reads")
+}
+
+model UserStatus {
+  userId       String   @id
+  isOnline     Boolean  @default(false)
+  lastSeenAt   DateTime @default(now())
+  socketId     String?
+  
+  @@map("user_status")
+}

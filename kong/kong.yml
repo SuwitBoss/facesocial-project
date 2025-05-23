@@ -134,6 +134,71 @@ services:
               credentials: true
               max_age: 3600
 
+  # Chat Service
+  - name: chat-service
+    url: http://chat-service:3005
+    routes:
+      - name: chat-api
+        paths:
+          - /api/chat/
+          - /api/chat
+        strip_path: false
+        methods:
+          - GET
+          - POST
+          - PUT
+          - DELETE
+        preserve_host: false
+    plugins:
+      - name: cors
+        config:
+          origins:
+            - "*"
+          methods:
+            - GET
+            - POST
+            - PUT
+            - DELETE
+            - OPTIONS
+          headers:
+            - Authorization
+            - Content-Type
+            - Accept
+            - Origin
+            - X-Requested-With
+          credentials: true
+          max_age: 3600
+
+  # Gender & Age Detection Service
+  - name: gender-age-service
+    url: http://gender-age-service:8001
+    routes:
+      - name: gender-age-api
+        paths:
+          - /gender-age/
+          - /gender-age
+        strip_path: true
+        methods:
+          - GET
+          - POST
+        preserve_host: false
+    plugins:
+      - name: cors
+        config:
+          origins:
+            - "*"
+          methods:
+            - GET
+            - POST
+          headers:
+            - Authorization
+            - Content-Type
+            - Accept
+            - Origin
+            - X-Requested-With
+          credentials: true
+          max_age: 3600
+
 plugins:
   - name: cors
     config:

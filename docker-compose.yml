@@ -183,6 +183,38 @@ services:
     networks:
       - facesocial-network
 
+  # Chat Service
+  chat-service:
+    build: ./chat-service
+    container_name: facesocial-chat-service
+    ports:
+      - "3005:3005"
+    environment:
+      DATABASE_URL: "postgresql://postgres:Boss.1212@postgres:5432/facesocial"
+      JWT_SECRET: "your-super-secret-jwt-key-change-this-in-production"
+      REDIS_URL: "redis://redis:6379"
+      PORT: 3005
+    depends_on:
+      - postgres
+      - redis
+    restart: unless-stopped
+    networks:
+      - facesocial-network
+
+  # Gender and Age Detection Service
+  gender-age-service:
+    build: ./gender-age-service
+    container_name: facesocial-gender-age-service
+    ports:
+      - "8011:8001"  # เปลี่ยน host port เป็น 8011
+    environment:
+      - PORT=8001
+    volumes:
+      - ./gender-age-service/models:/app/models:ro
+    restart: unless-stopped
+    networks:
+      - facesocial-network
+
 networks:
   facesocial-network:
     driver: bridge
