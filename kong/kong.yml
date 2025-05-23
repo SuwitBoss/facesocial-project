@@ -1,0 +1,90 @@
+_format_version: "3.0"
+_transform: true
+
+services:
+  # User Service
+  - name: user-service
+    url: http://user-service:3001
+    routes:
+      - name: user-routes
+        paths:
+          - /
+          - /health
+          - /test-db
+          - /api/users
+        strip_path: false
+    plugins:
+      - name: cors
+        config:
+          origins:
+            - "*"
+          methods:
+            - GET
+            - POST
+            - PUT
+            - DELETE
+            - OPTIONS
+          headers:
+            - Accept
+            - Authorization
+            - Content-Type
+          exposed_headers:
+            - Content-Length
+            - Content-Type
+          credentials: true
+          max_age: 3600
+
+  # Face Recognition Service
+  - name: face-recognition-service
+    url: http://face-recognition-service:3002
+    routes:
+      - name: face-routes
+        paths:
+          - /api/face/
+        strip_path: true  # สำคัญ! ต้องเป็น true และลงท้ายด้วย / เพื่อตัด /api/face/ ออก
+    plugins:
+      - name: cors
+        config:
+          origins:
+            - "*"
+          methods:
+            - GET
+            - POST
+            - PUT
+            - DELETE
+            - OPTIONS
+          headers:
+            - Accept
+            - Authorization
+            - Content-Type
+          exposed_headers:
+            - Content-Length
+            - Content-Type
+          credentials: true
+          max_age: 3600
+      - name: request-size-limiting
+        config:
+          allowed_payload_size: 50  # MB
+          size_unit: megabytes
+          require_content_length: false
+
+plugins:
+  - name: cors
+    config:
+      origins:
+        - "*"
+      methods:
+        - GET
+        - POST
+        - PUT
+        - DELETE
+        - OPTIONS
+      headers:
+        - Accept
+        - Authorization
+        - Content-Type
+      exposed_headers:
+        - Content-Length
+        - Content-Type
+      credentials: true
+      max_age: 3600
