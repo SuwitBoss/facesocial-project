@@ -9,6 +9,7 @@ import asyncio
 from typing import Optional
 import uuid
 import numpy as np
+import cv2
 
 # Import our utilities
 from utils.face_detector import YOLOv5FaceDetector
@@ -16,6 +17,7 @@ from utils.image_utils import bytes_to_opencv, draw_faces_on_image, encode_image
 from utils.face_embedder import FaceEmbedder
 from utils.milvus_manager import MilvusManager
 from utils.anti_spoofing import AntiSpoofingDetector, LivenessDetector
+from glasses_detector import AnyglassesClassifier
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -42,11 +44,12 @@ face_embedder = None
 milvus_manager = None
 anti_spoofing_detector = None
 liveness_detector = None
+glasses_classifier = None
 
 @app.on_event("startup")
 async def startup_event():
     """Initialize models on startup"""
-    global face_detector, face_embedder, milvus_manager, anti_spoofing_detector, liveness_detector
+    global face_detector, face_embedder, milvus_manager, anti_spoofing_detector, liveness_detector, glasses_classifier
     try:
         logger.info("Loading Face Detection model...")
         # ตรวจสอบ path ของโมเดล
@@ -107,6 +110,15 @@ async def startup_event():
         logger.info("Liveness Detector initialized!")
     except Exception as e:
         logger.error(f"Failed to initialize Liveness Detector: {e}")
+
+    # Load Glasses Detector
+    try:
+        logger.info("Loading Glasses Detector model...")
+        glasses_classifier = AnyglassesClassifier()  # ไม่ต้องใส่ device
+        logger.info("Glasses Detector loaded successfully!")
+    except Exception as e:
+        logger.error(f"Failed to load Glasses Detector: {e}")
+        glasses_classifier = None
 
 @app.get("/")
 def read_root():
@@ -424,12 +436,23 @@ async def verify_face(
                 "confidence": 0.0
             }
         best_match = max(user_matches, key=lambda x: x["similarity"])
-        is_verified = best_match["similarity"] >= threshold
+        # ตรวจจับแว่นตา (ใช้ Glasses Detector หรือ fallback)
+        has_glasses = False
+        try:
+            has_glasses = has_glasses(face_image)
+        except Exception as e:
+            logger.warning(f"Glasses detection failed: {e}")
+        # ปรับ threshold ถ้าพบแว่นตา
+        adjusted_threshold = threshold
+        auto_adjust = True  # สามารถตั้งค่าตรงนี้หรือรับจาก form ได้
+        if has_glasses and auto_adjust:
+            adjusted_threshold = threshold * 0.7  # ลดลง 30%
+        is_verified = best_match["similarity"] >= adjusted_threshold
         return {
             "verified": bool(is_verified),
             "user_id": user_id,
             "similarity": float(best_match["similarity"]),
-            "threshold": float(threshold),
+            "threshold": float(adjusted_threshold),
             "face_id": str(best_match["face_id"]),
             "message": "Face verified successfully" if is_verified else "Face verification failed"
         }
@@ -491,6 +514,17 @@ async def identify_face(
             } for c in candidates
         ]
         best_match = candidates[0] if candidates else None
+        # ตรวจจับแว่นตา (ใช้ Glasses Detector หรือ fallback)
+        has_glasses = False
+        try:
+            has_glasses = has_glasses(face_image)
+        except Exception as e:
+            logger.warning(f"Glasses detection failed: {e}")
+        # ปรับ threshold ถ้าพบแว่นตา
+        adjusted_threshold = threshold
+        auto_adjust = True  # สามารถตั้งค่าตรงนี้หรือรับจาก form ได้
+        if has_glasses and auto_adjust:
+            adjusted_threshold = threshold * 0.7  # ลดลง 30%
         return {
             "identified": True,
             "message": f"Found {len(candidates)} potential matches",
@@ -551,6 +585,16 @@ async def check_face_liveness(
             "face_detected": True,
             "face_confidence": float(best_face["confidence"])
         }
+        # ตรวจจับแว่นตา (ใช้ Glasses Detector หรือ fallback Haar Cascade)
+        has_glasses_flag = False
+        try:
+            has_glasses_flag = has_glasses(face_image)
+        except Exception as e:
+            logger.warning(f"Glasses detection failed: {e}")
+        # ปรับ threshold ถ้าพบแว่นตา
+        adjusted_confidence_threshold = 0.7
+        if has_glasses_flag:
+            adjusted_confidence_threshold = 0.7 * 0.7  # ลดลง 30%
         if check_spoofing and anti_spoofing_detector is not None:
             spoofing_result = anti_spoofing_detector.detect_spoofing(face_image)
             # Convert all numpy types to python types in spoofing_result
@@ -573,18 +617,25 @@ async def check_face_liveness(
         is_live = True
         confidence_scores = []
         if "anti_spoofing" in result:
-            is_live = is_live and bool(result["anti_spoofing"]["is_real"])
-            confidence_scores.append(float(result["anti_spoofing"]["confidence"]))
+            # ปรับ logic: ถ้า confidence > adjusted_confidence_threshold ให้ผ่าน แม้ is_real จะเป็น False
+            spoofing_is_real = bool(result["anti_spoofing"]["is_real"])
+            spoofing_conf = float(result["anti_spoofing"]["confidence"])
+            is_live = is_live and (spoofing_is_real or spoofing_conf > adjusted_confidence_threshold)
+            confidence_scores.append(spoofing_conf)
         if "liveness_checks" in result:
             is_live = is_live and bool(result["liveness_checks"]["face_size_adequate"])
             if result["liveness_checks"]["texture_analysis"]["is_sharp"]:
                 confidence_scores.append(0.8)
             else:
                 confidence_scores.append(0.3)
-                is_live = False
+                # ผ่อนปรน: ถ้า has_glasses และ anti-spoofing ผ่าน ให้ไม่ตัด is_live เป็น False
+                if not (has_glasses_flag and "anti_spoofing" in result and result["anti_spoofing"]["confidence"] > adjusted_confidence_threshold):
+                    is_live = False
         result["is_live"] = bool(is_live)
         result["overall_confidence"] = float(np.mean(confidence_scores)) if confidence_scores else 0.0
         result["recommendation"] = "PASS" if is_live else "FAIL - Possible spoofing detected"
+        result["has_glasses"] = bool(has_glasses_flag)
+        result["adjusted_confidence_threshold"] = float(adjusted_confidence_threshold)
         return result
     except HTTPException:
         raise
@@ -633,6 +684,30 @@ async def register_face_secure_alias(
 ):
     return await register_face_with_liveness(file, user_id, model_type, require_liveness)
 
-if __name__ "__main__":
+def has_glasses(face_img):
+    """ตรวจจับแว่นตาด้วย Glasses Detector หรือ fallback เป็น Haar Cascade"""
+    global glasses_classifier
+    try:
+        if glasses_classifier is not None:
+            temp_path = "temp_face.jpg"
+            cv2.imwrite(temp_path, face_img)
+            result = glasses_classifier.predict(temp_path)
+            os.remove(temp_path)
+            return bool(result)
+        else:
+            return has_glasses_using_haar(face_img)
+    except Exception as e:
+        logger.warning(f"Glasses detection failed, fallback to Haar: {e}")
+        return has_glasses_using_haar(face_img)
+
+def has_glasses_using_haar(face_img):
+    """ตรวจจับแว่นตาด้วย Haar Cascade (ใช้ path ที่ถูกต้องใน src/)"""
+    cascade_path = os.path.join(os.path.dirname(__file__), 'haarcascade_eye_tree_eyeglasses.xml')
+    eye_cascade = cv2.CascadeClassifier(cascade_path)
+    gray = cv2.cvtColor(face_img, cv2.COLOR_BGR2GRAY)
+    eyes = eye_cascade.detectMultiScale(gray, scaleFactor=1.3, minNeighbors=5)
+    return len(eyes) >= 2
+
+if __name__ == "__main__":
     port = int(os.getenv("PORT", 3002))
     uvicorn.run(app, host="0.0.0.0", port=port)
