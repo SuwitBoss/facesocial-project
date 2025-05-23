@@ -563,6 +563,10 @@ async def get_face_stats():
     except Exception as e:
         return {"error": str(e)}
 
+@app.get("/stats")
+async def get_face_stats_alias():
+    return await get_face_stats()
+
 @app.post("/face/check-liveness")
 async def check_face_liveness(
     file: UploadFile = File(...),

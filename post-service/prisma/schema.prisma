@@ -1,0 +1,110 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Post {
+  id          String     @id @default(uuid())
+  userId      String
+  content     String?
+  visibility  String     @default("public") // public, friends, private
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  
+  images      PostImage[]
+  likes       Like[]
+  comments    Comment[]
+  shares      Share[]
+  
+  @@index([userId])
+  @@index([createdAt])
+  @@map("posts")
+}
+
+model PostImage {
+  id          String     @id @default(uuid())
+  postId      String
+  imageUrl    String
+  mimeType    String
+  size        Int
+  width       Int?
+  height      Int?
+  order       Int        @default(0)
+  
+  post        Post       @relation(fields: [postId], references: [id], onDelete: Cascade)
+  faceTags    FaceTag[]
+  
+  @@index([postId])
+  @@map("post_images")
+}
+
+model FaceTag {
+  id          String     @id @default(uuid())
+  imageId     String
+  userId      String     // User who is tagged
+  taggerId    String     // User who created the tag
+  
+  // Bounding box coordinates
+  x           Int
+  y           Int
+  width       Int
+  height      Int
+  
+  confidence  Float
+  isAutoTag   Boolean    @default(false)
+  isVerified  Boolean    @default(false)
+  
+  createdAt   DateTime   @default(now())
+  
+  image       PostImage  @relation(fields: [imageId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([imageId])
+  @@map("face_tags")
+}
+
+model Like {
+  id          String     @id @default(uuid())
+  postId      String
+  userId      String
+  createdAt   DateTime   @default(now())
+  
+  post        Post       @relation(fields: [postId], references: [id], onDelete: Cascade)
+  
+  @@unique([postId, userId])
+  @@index([postId])
+  @@index([userId])
+  @@map("likes")
+}
+
+model Comment {
+  id          String     @id @default(uuid())
+  postId      String
+  userId      String
+  content     String
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  
+  post        Post       @relation(fields: [postId], references: [id], onDelete: Cascade)
+  
+  @@index([postId])
+  @@index([userId])
+  @@map("comments")
+}
+
+model Share {
+  id          String     @id @default(uuid())
+  postId      String
+  userId      String
+  createdAt   DateTime   @default(now())
+  
+  post        Post       @relation(fields: [postId], references: [id], onDelete: Cascade)
+  
+  @@index([postId])
+  @@index([userId])
+  @@map("shares")
+}

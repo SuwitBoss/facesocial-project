@@ -41,6 +41,7 @@ services:
       - name: face-routes
         paths:
           - /api/face/
+          - /api/face  # รองรับทั้งมี / และไม่มี /
         strip_path: true  # สำคัญ! ต้องเป็น true และลงท้ายด้วย / เพื่อตัด /api/face/ ออก
     plugins:
       - name: cors
@@ -67,6 +68,71 @@ services:
           allowed_payload_size: 50  # MB
           size_unit: megabytes
           require_content_length: false
+
+  # Deepfake Detection Service (เพิ่มใหม่)
+  - name: deepfake-detection-service
+    url: http://deepfake-detection-service:8000
+    routes:
+      - name: deepfake-routes
+        paths:
+          - /api/deepfake/
+        strip_path: true
+    plugins:
+      - name: cors
+        config:
+          origins:
+            - "*"
+          methods:
+            - GET
+            - POST
+            - OPTIONS
+          headers:
+            - Accept
+            - Content-Type
+          exposed_headers:
+            - Content-Length
+            - Content-Type
+          credentials: true
+          max_age: 3600
+      - name: request-size-limiting
+        config:
+          allowed_payload_size: 50
+          size_unit: megabytes
+
+  # Post Service
+  - name: post-service
+    url: http://post-service:3004
+    routes:
+      - name: post-api
+        paths:
+          - /api/posts
+        strip_path: false
+        methods:
+          - GET
+          - POST
+          - PUT
+          - PATCH
+          - DELETE
+        preserve_host: false
+        plugins:
+          - name: cors
+            config:
+              origins:
+                - "*"
+              methods:
+                - GET
+                - POST
+                - PUT
+                - PATCH
+                - DELETE
+              headers:
+                - Authorization
+                - Content-Type
+                - Accept
+                - Origin
+                - X-Requested-With
+              credentials: true
+              max_age: 3600
 
 plugins:
   - name: cors

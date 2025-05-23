@@ -100,6 +100,23 @@ services:
     networks:
       - facesocial-network
 
+  # Deepfake Detection Service
+  deepfake-detection-service:
+    build: ./deepfake-detection-service
+    container_name: deepfake-detection-service   # ต้องใช้ชื่อนี้!
+    ports:
+      - "8000:8000"   # ให้ map port 8000 ออกมาด้วย (optionally keep 3003:8000 ถ้าต้องการ)
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    volumes:
+      - ./deepfake-detection-service/models:/app/models
+    depends_on:
+      - redis
+    restart: unless-stopped
+    networks:
+      - facesocial-network
+
   # Kong API Gateway
   kong:
     image: kong:3.4
@@ -114,7 +131,7 @@ services:
       KONG_ADMIN_LISTEN: '0.0.0.0:8001'
       KONG_PROXY_LISTEN: '0.0.0.0:8000'
     ports:
-      - "8000:8000"
+      - "8002:8000"
       - "8443:8443"
       - "8001:8001"
       - "8444:8444"
@@ -138,6 +155,28 @@ services:
     depends_on:
       - postgres
       - redis
+    restart: unless-stopped
+    networks:
+      - facesocial-network
+
+  # Post Service
+  post-service:
+    build: ./post-service
+    container_name: facesocial-post-service
+    ports:
+      - "3004:3004"
+    environment:
+      DATABASE_URL: "postgresql://postgres:Boss.1212@postgres:5432/facesocial"
+      JWT_SECRET: "your-super-secret-jwt-key-change-this-in-production"
+      REDIS_URL: "redis://redis:6379"
+      FACE_SERVICE_URL: "http://face-recognition-service:3002"
+      DEEPFAKE_SERVICE_URL: "http://deepfake-detection-service:8000"
+      PORT: 3004
+    depends_on:
+      - postgres
+      - redis
+      - face-recognition-service
+      - deepfake-detection-service
     restart: unless-stopped
     networks:
       - facesocial-network
