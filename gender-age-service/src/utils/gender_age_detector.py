@@ -3,6 +3,7 @@ import numpy as np
 import onnxruntime as ort
 from PIL import Image
 import logging
+from typing import Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -37,95 +38,45 @@ class GenderAgeDetector:
         img_batch = np.expand_dims(img_transposed, axis=0)
         return img_batch
 
+    def postprocess(self, predictions: np.ndarray) -> Tuple[int, int]:
+        # Gender: argmax of first 2 elements
+        gender = int(np.argmax(predictions[:2]))
+        # Age: third element * 100 (denormalize)
+        age = int(np.round(predictions[2] * 100))
+        age = max(0, min(100, age))
+        return gender, age
+
     def detect_gender_age(self, face_image: np.ndarray):
-        """
-        Detect gender and age from face image
-        """
         try:
-            # Preprocess
             input_data = self.preprocess_face(face_image)
-            # Run inference
             outputs = self.session.run(self.output_names, {self.input_name: input_data})
-            logger.info(f"Model outputs count: {len(outputs)}")
-            for i, output in enumerate(outputs):
-                logger.info(f"Output {i} shape: {output.shape}, sample values: {output.flatten()[:5]}")
-
-            # --- Improved output parsing logic ---
-            if len(outputs) == 2:
-                gender_output = outputs[0][0]
-                age_output = outputs[1][0]
-                logger.info(f"Gender output: {gender_output}, Age output: {age_output}")
-
-                # Gender parsing (same as before)
-                if len(gender_output.shape) == 0:
-                    gender_pred = 1 if gender_output > 0.5 else 0
-                    gender_confidence = abs(gender_output - 0.5) + 0.5
-                elif len(gender_output) == 2:
-                    gender_prob = gender_output[1]
-                    gender_pred = 1 if gender_prob > 0.5 else 0
-                    gender_confidence = max(gender_output)
-                else:
-                    gender_pred = int(gender_output > 0.5)
-                    gender_confidence = abs(gender_output - 0.5) + 0.5
-
-                # --- Improved age parsing ---
-                if len(age_output.shape) == 0:
-                    age_pred = float(age_output)
-                elif len(age_output.shape) == 1 and len(age_output) > 1:
-                    # Check if softmax (probabilities sum to ~1)
-                    prob_sum = float(np.sum(age_output))
-                    logger.info(f"Age output sum: {prob_sum}")
-                    if 0.95 < prob_sum < 1.05:
-                        # Softmax over age classes (e.g., 0-100)
-                        expected_age = float(np.sum(np.arange(len(age_output)) * age_output))
-                        age_pred = expected_age
-                        logger.info(f"Softmax age prediction: {age_pred}")
-                    else:
-                        # Not softmax, fallback to first value
-                        age_pred = float(age_output[0])
-                else:
-                    age_pred = float(age_output)  # fallback
-
-            elif len(outputs) == 1:
-                output = outputs[0][0]
-                logger.info(f"Single output: {output}")
-                if len(output) >= 2:
-                    gender_logit = output[0]
-                    age_value = output[1]
-                    gender_pred = 1 if gender_logit > 0 else 0
-                    gender_confidence = 1.0 / (1.0 + np.exp(-abs(gender_logit)))
-                    # Improved age logic
-                    if abs(age_value) < 1:
-                        age_pred = float(age_value * 100)
-                    elif abs(age_value) < 10:
-                        age_pred = float(age_value * 10)
-                    else:
-                        age_pred = float(age_value)
-                else:
-                    gender_pred = 0
-                    gender_confidence = 0.5
-                    age_pred = 25.0
-            else:
-                logger.warning(f"Unknown output format: {len(outputs)} outputs")
-                gender_pred = 0
-                gender_confidence = 0.5
-                age_pred = 25.0
-
-            age_pred = max(0, min(100, age_pred))
+            predictions = outputs[0][0]  # Remove batch dimension
+            logger.info(f"Raw predictions: {predictions}")
+            logger.info(f"Predictions shape: {predictions.shape}")
+            gender_pred, age_pred = self.postprocess(predictions)
+            gender_logits = predictions[:2]
+            gender_probs = self._softmax(gender_logits)
+            gender_confidence = float(np.max(gender_probs))
             gender_text = "Male" if gender_pred == 1 else "Female"
+            logger.info(f"Parsed - Gender: {gender_text} ({gender_confidence:.3f}), Age: {age_pred}")
             return {
                 "gender": {
                     "prediction": gender_text,
                     "value": int(gender_pred),
-                    "confidence": float(gender_confidence)
+                    "confidence": gender_confidence,
+                    "probabilities": {
+                        "Female": float(gender_probs[0]),
+                        "Male": float(gender_probs[1])
+                    }
                 },
                 "age": {
-                    "prediction": round(age_pred),
+                    "prediction": int(age_pred),
                     "value": float(age_pred),
                     "range": {
-                        "min": max(0, round(age_pred - 5)),
-                        "max": min(100, round(age_pred + 5))
-                    }
+                        "min": max(0, int(age_pred - 5)),
+                        "max": min(100, int(age_pred + 5))
+                    },
+                    "raw_output": float(predictions[2])
                 }
             }
         except Exception as e:
@@ -143,6 +94,9 @@ class GenderAgeDetector:
                 },
                 "error": str(e)
             }
+    def _softmax(self, x):
+        exp_x = np.exp(x - np.max(x))
+        return exp_x / np.sum(exp_x)
 
     def analyze_multiple_faces(self, face_images: list):
         results = []
