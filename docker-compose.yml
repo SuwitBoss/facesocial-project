@@ -90,6 +90,9 @@ services:
       REDIS_PORT: 6379
     ports:
       - "3002:3002"
+    volumes:
+      # Mount models folder
+      - ./face-recognition-service/models:/app/models:ro
     depends_on:
       - milvus
       - redis

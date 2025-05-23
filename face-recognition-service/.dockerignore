@@ -1,0 +1,20 @@
+# Ignore model files during build
+models/
+*.onnx
+*.pth
+*.pt
+*.ckpt
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# IDE
+.vscode/
+.idea/
+
+# Test files
+*.jpg
+*.png
