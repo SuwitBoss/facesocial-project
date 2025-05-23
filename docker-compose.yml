@@ -148,6 +148,8 @@ services:
   user-service:
     build: ./user-service
     container_name: facesocial-user-service
+    ports:
+      - "3001:3001"
     environment:
       DATABASE_URL: "postgresql://postgres:Boss.1212@postgres:5432/facesocial"
       JWT_SECRET: "your-super-secret-jwt-key-change-this-in-production"
