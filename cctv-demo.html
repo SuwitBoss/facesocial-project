@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CCTV Face Recognition Demo</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0f0f0f;
+            color: #e0e0e0;
+            overflow-x: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px 0;
+            text-align: center;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .controls {
+            background: #1a1a1a;
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 30px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+            border: 1px solid #333;
+        }
+        .control-group {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        input, select {
+            padding: 12px 20px;
+            border: 2px solid #333;
+            border-radius: 8px;
+            background: #2a2a2a;
+            color: #e0e0e0;
+            font-size: 16px;
+            transition: all 0.3s;
+        }
+        input:focus, select:focus {
+            border-color: #667eea;
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
+        }
+        button {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .btn-start {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .btn-start:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+        .btn-stop {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+        }
+        .btn-stop:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(245, 87, 108, 0.4);
+        }
+        .dashboard {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .panel {
+            background: #1a1a1a;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+            border: 1px solid #333;
+        }
+        .panel h3 {
+            color: #667eea;
+            margin-bottom: 20px;
+            font-size: 1.4rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+        }
+        .stat-card {
+            background: #2a2a2a;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            border: 1px solid #333;
+            transition: all 0.3s;
+        }
+        .stat-card:hover {
+            border-color: #667eea;
+            transform: translateY(-2px);
+        }
+        .stat-value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+        .stat-label {
+            color: #888;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .detection-log {
+            background: #0a0a0a;
+            border-radius: 10px;
+            padding: 20px;
+            height: 400px;
+            overflow-y: auto;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 14px;
+            border: 1px solid #333;
+        }
+        .detection-item {
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            animation: slideIn 0.3s ease-out;
+        }
+        @keyframes slideIn {
+            from { transform: translateX(-20px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        .detection-known {
+            background: rgba(102, 126, 234, 0.2);
+            border-left: 4px solid #667eea;
+        }
+        .detection-unknown {
+            background: rgba(245, 87, 108, 0.2);
+            border-left: 4px solid #f5576c;
+        }
+        .detection-alert {
+            background: rgba(255, 193, 7, 0.2);
+            border-left: 4px solid #ffc107;
+        }
+        .session-card {
+            background: #2a2a2a;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 15px;
+            border: 1px solid #333;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.3s;
+        }
+        .session-card:hover {
+            border-color: #667eea;
+        }
+        .session-info h4 {
+            color: #e0e0e0;
+            margin-bottom: 5px;
+        }
+        .session-info p {
+            color: #888;
+            font-size: 0.9rem;
+        }
+        .status-badge {
+            padding: 6px 15px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        .status-active {
+            background: rgba(76, 175, 80, 0.2);
+            color: #4caf50;
+            border: 1px solid #4caf50;
+        }
+        .status-stopped {
+            background: rgba(244, 67, 54, 0.2);
+            color: #f44336;
+            border: 1px solid #f44336;
+        }
+        .video-preview {
+            background: #0a0a0a;
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            min-height: 300px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid #333;
+        }
+        .preview-placeholder {
+            color: #666;
+            font-size: 1.2rem;
+        }
+        .detection-image {
+            max-width: 100%;
+            border-radius: 8px;
+            margin-top: 10px;
+        }
+        .alert-notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, #ffc107 0%, #ff6b6b 100%);
+            color: white;
+            padding: 20px 30px;
+            border-radius: 10px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+            animation: slideInRight 0.5s ease-out;
+            z-index: 1000;
+        }
+        @keyframes slideInRight {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: #667eea;
+            animation: spin 1s ease-in-out infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        @media (max-width: 768px) {
+            .dashboard {
+                grid-template-columns: 1fr;
+            }
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🎥 CCTV Face Recognition System</h1>
+        <p>Real-time Face Detection and Recognition Monitoring</p>
+    </div>
+
+    <div class="container">
+        <!-- Controls -->
+        <div class="controls">
+            <div class="control-group">
+                <input type="text" id="streamUrl" placeholder="Stream URL (rtsp://... or http://...)" style="flex: 1;">
+                <select id="streamType">
+                    <option value="rtsp">RTSP Stream</option>
+                    <option value="http">HTTP Stream</option>
+                    <option value="webcam">Webcam</option>
+                </select>
+                <button class="btn-start" onclick="startMonitoring()">
+                    <span id="startBtnText">🚀 Start Monitoring</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Dashboard -->
+        <div class="dashboard">
+            <!-- Statistics Panel -->
+            <div class="panel">
+                <h3>📊 Live Statistics</h3>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-value" id="totalDetections">0</div>
+                        <div class="stat-label">Total Detections</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="knownPersons">0</div>
+                        <div class="stat-label">Known Persons</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="unknownPersons">0</div>
+                        <div class="stat-label">Unknown Persons</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="alerts">0</div>
+                        <div class="stat-label">Alerts Sent</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Active Sessions Panel -->
+            <div class="panel">
+                <h3>🔴 Active Monitoring Sessions</h3>
+                <div id="sessionsList">
+                    <p class="preview-placeholder">No active sessions</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Detection Log -->
+        <div class="panel">
+            <h3>📡 Real-time Detection Log</h3>
+            <div class="detection-log" id="detectionLog">
+                <p class="preview-placeholder">Waiting for detections...</p>
+            </div>
+        </div>
+
+        <!-- Video Preview (optional) -->
+        <div class="panel">
+            <h3>🎬 Latest Detection Preview</h3>
+            <div class="video-preview" id="videoPreview">
+                <p class="preview-placeholder">No detection images yet</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let activeSession = null;
+        let ws = null;
+        let stats = {
+            totalDetections: 0,
+            knownPersons: 0,
+            unknownPersons: 0,
+            alerts: 0
+        };
+
+        // Base URL - adjust if needed
+        const API_BASE = 'http://localhost:8003';
+
+        async function startMonitoring() {
+            const streamUrl = document.getElementById('streamUrl').value;
+            const streamType = document.getElementById('streamType').value;
+
+            if (!streamUrl && streamType !== 'webcam') {
+                showAlert('Please enter a stream URL', 'error');
+                return;
+            }
+
+            const startBtn = document.querySelector('.btn-start');
+            startBtn.innerHTML = '<span class="loading"></span> Starting...';
+            startBtn.disabled = true;
+
+            try {
+                const formData = new FormData();
+                formData.append('stream_url', streamType === 'webcam' ? '0' : streamUrl);
+                formData.append('stream_type', streamType);
+                formData.append('detection_interval', '1000');
+                formData.append('min_detection_confidence', '0.6');
+                formData.append('notify_on_match', 'true');
+                formData.append('save_detections', 'true');
+                formData.append('alert_threshold', '0.75');
+
+                const response = await fetch(`${API_BASE}/cctv/start-monitoring`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+                
+                if (response.ok) {
+                    activeSession = data.monitoring_id;
+                    showAlert('✅ Monitoring started successfully!', 'success');
+                    connectWebSocket(activeSession);
+                    updateUI();
+                    startBtn.innerHTML = '⏹️ Stop Monitoring';
+                    startBtn.className = 'btn-stop';
+                    startBtn.onclick = stopMonitoring;
+                } else {
+                    throw new Error(data.detail || 'Failed to start monitoring');
+                }
+            } catch (error) {
+                showAlert(`❌ Error: ${error.message}`, 'error');
+                startBtn.innerHTML = '🚀 Start Monitoring';
+            } finally {
+                startBtn.disabled = false;
+            }
+        }
+
+        async function stopMonitoring() {
+            if (!activeSession) return;
+
+            const stopBtn = document.querySelector('.btn-stop');
+            stopBtn.innerHTML = '<span class="loading"></span> Stopping...';
+            stopBtn.disabled = true;
+
+            try {
+                await fetch(`${API_BASE}/cctv/monitoring/${activeSession}`, {
+                    method: 'DELETE'
+                });
+
+                showAlert('⏹️ Monitoring stopped', 'info');
+                
+                if (ws) {
+                    ws.close();
+                    ws = null;
+                }
+                
+                activeSession = null;
+                updateUI();
+                
+                const btn = document.querySelector('button');
+                btn.innerHTML = '🚀 Start Monitoring';
+                btn.className = 'btn-start';
+                btn.onclick = startMonitoring;
+            } catch (error) {
+                showAlert(`❌ Error: ${error.message}`, 'error');
+            } finally {
+                stopBtn.disabled = false;
+            }
+        }
+
+        function connectWebSocket(monitoringId) {
+            ws = new WebSocket(`ws://localhost:8003/ws/${monitoringId}`);
+
+            ws.onopen = () => {
+                log('🔌 WebSocket connected', 'system');
+            };
+
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                handleWebSocketMessage(data);
+            };
+
+            ws.onclose = () => {
+                log('🔌 WebSocket disconnected', 'system');
+            };
+
+            ws.onerror = (error) => {
+                log(`❌ WebSocket error: ${error}`, 'error');
+            };
+        }
+
+        function handleWebSocketMessage(data) {
+            if (data.type === 'detection') {
+                stats.totalDetections++;
+                
+                if (data.is_known_person) {
+                    stats.knownPersons++;
+                    log(`👤 Known person detected: ${data.person_name} (${(data.confidence * 100).toFixed(1)}%)`, 'known');
+                } else {
+                    stats.unknownPersons++;
+                    log(`❓ Unknown person detected (${(data.confidence * 100).toFixed(1)}%)`, 'unknown');
+                }
+                
+                updateStats();
+                
+                // Show preview if available
+                if (data.image_url) {
+                    showPreview(data.image_url);
+                }
+            } else if (data.type === 'alert') {
+                stats.alerts++;
+                log(`🚨 ALERT: ${data.message}`, 'alert');
+                showNotification(data.message);
+                updateStats();
+            }
+        }
+
+        function log(message, type = 'info') {
+            const logEl = document.getElementById('detectionLog');
+            const time = new Date().toLocaleTimeString();
+            
+            if (logEl.querySelector('.preview-placeholder')) {
+                logEl.innerHTML = '';
+            }
+            
+            const className = type === 'known' ? 'detection-known' : 
+                            type === 'unknown' ? 'detection-unknown' :
+                            type === 'alert' ? 'detection-alert' : '';
+            
+            const item = document.createElement('div');
+            item.className = `detection-item ${className}`;
+            item.innerHTML = `[${time}] ${message}`;
+            
+            logEl.insertBefore(item, logEl.firstChild);
+            
+            // Keep only last 50 entries
+            while (logEl.children.length > 50) {
+                logEl.removeChild(logEl.lastChild);
+            }
+        }
+
+        function updateStats() {
+            document.getElementById('totalDetections').textContent = stats.totalDetections;
+            document.getElementById('knownPersons').textContent = stats.knownPersons;
+            document.getElementById('unknownPersons').textContent = stats.unknownPersons;
+            document.getElementById('alerts').textContent = stats.alerts;
+        }
+
+        async function updateUI() {
+            // Update active sessions
+            try {
+                const response = await fetch(`${API_BASE}/cctv/active-sessions`);
+                const data = await response.json();
+                
+                const sessionsList = document.getElementById('sessionsList');
+                
+                if (data.sessions.length === 0) {
+                    sessionsList.innerHTML = '<p class="preview-placeholder">No active sessions</p>';
+                } else {
+                    sessionsList.innerHTML = data.sessions.map(session => `
+                        <div class="session-card">
+                            <div class="session-info">
+                                <h4>Session: ${session.monitoring_id.substring(0, 8)}...</h4>
+                                <p>${session.stream_url}</p>
+                            </div>
+                            <span class="status-badge status-${session.status}">${session.status}</span>
+                        </div>
+                    `).join('');
+                }
+            } catch (error) {
+                console.error('Failed to update sessions:', error);
+            }
+        }
+
+        function showPreview(imageUrl) {
+            // In a real implementation, you would fetch and display the image
+            const preview = document.getElementById('videoPreview');
+            preview.innerHTML = `<p style="color: #667eea;">📸 Detection image saved: ${imageUrl}</p>`;
+        }
+
+        function showAlert(message, type = 'info') {
+            const alertDiv = document.createElement('div');
+            alertDiv.className = 'alert-notification';
+            alertDiv.innerHTML = message;
+            
+            document.body.appendChild(alertDiv);
+            
+            setTimeout(() => {
+                alertDiv.style.animation = 'slideInRight 0.5s ease-out reverse';
+                setTimeout(() => alertDiv.remove(), 500);
+            }, 3000);
+        }
+
+        function showNotification(message) {
+            if ('Notification' in window && Notification.permission === 'granted') {
+                new Notification('🚨 FaceSocial Alert', {
+                    body: message,
+                    icon: '/favicon.ico'
+                });
+            }
+        }
+
+        // Request notification permission
+        if ('Notification' in window && Notification.permission === 'default') {
+            Notification.requestPermission();
+        }
+
+        // Update UI every 5 seconds
+        setInterval(updateUI, 5000);
+        
+        // Initial UI update
+        updateUI();
+    </script>
+</body>
+</html>

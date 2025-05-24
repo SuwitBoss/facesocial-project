@@ -1,79 +1,10 @@
 services:
-  # PostgreSQL Database
-  postgres:
-    image: postgres:15
-    container_name: facesocial-postgres
-    environment:
-      POSTGRES_PASSWORD: Boss.1212
-      POSTGRES_DB: facesocial
-      POSTGRES_USER: postgres
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres-data:/var/lib/postgresql/data
-    restart: unless-stopped
-    networks:
-      - facesocial-network
-
   # Redis
   redis:
     image: redis:7-alpine
     container_name: facesocial-redis
     ports:
       - "6379:6379"
-    restart: unless-stopped
-    networks:
-      - facesocial-network
-
-  # Etcd for Milvus
-  etcd:
-    image: quay.io/coreos/etcd:v3.5.5
-    container_name: facesocial-etcd
-    environment:
-      - ETCD_AUTO_COMPACTION_MODE=revision
-      - ETCD_AUTO_COMPACTION_RETENTION=1000
-      - ETCD_QUOTA_BACKEND_BYTES=4294967296
-      - ETCD_SNAPSHOT_COUNT=50000
-    command: etcd -advertise-client-urls=http://127.0.0.1:2379 -listen-client-urls http://0.0.0.0:2379 --data-dir /etcd
-    volumes:
-      - etcd-data:/etcd
-    restart: unless-stopped
-    networks:
-      - facesocial-network
-
-  # MinIO Object Storage
-  minio:
-    image: minio/minio:RELEASE.2023-08-04T17-40-21Z
-    container_name: facesocial-minio
-    environment:
-      MINIO_ACCESS_KEY: minioadmin
-      MINIO_SECRET_KEY: minioadmin
-    ports:
-      - "9001:9001"
-      - "9000:9000"
-    volumes:
-      - minio-data:/data
-    command: minio server /data --console-address ":9001"
-    restart: unless-stopped
-    networks:
-      - facesocial-network
-
-  # Milvus Vector Database
-  milvus:
-    image: milvusdb/milvus:v2.3.0
-    container_name: facesocial-milvus
-    command: ["milvus", "run", "standalone"]
-    environment:
-      ETCD_ENDPOINTS: etcd:2379
-      MINIO_ADDRESS: minio:9000
-    volumes:
-      - milvus-data:/var/lib/milvus
-    ports:
-      - "19530:19530"
-      - "9091:9091"
-    depends_on:
-      - "etcd"
-      - "minio"
     restart: unless-stopped
     networks:
       - facesocial-network
@@ -94,108 +25,6 @@ services:
       # Mount models folder
       - ./face-recognition-service/models:/app/models:ro
     depends_on:
-      - milvus
-      - redis
-    restart: unless-stopped
-    networks:
-      - facesocial-network
-
-  # Deepfake Detection Service
-  deepfake-detection-service:
-    build: ./deepfake-detection-service
-    container_name: deepfake-detection-service   # ต้องใช้ชื่อนี้!
-    ports:
-      - "8000:8000"   # ให้ map port 8000 ออกมาด้วย (optionally keep 3003:8000 ถ้าต้องการ)
-    environment:
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-    volumes:
-      - ./deepfake-detection-service/models:/app/models
-    depends_on:
-      - redis
-    restart: unless-stopped
-    networks:
-      - facesocial-network
-
-  # Kong API Gateway
-  kong:
-    image: kong:3.4
-    container_name: facesocial-kong
-    environment:
-      KONG_DATABASE: 'off'
-      KONG_DECLARATIVE_CONFIG: /usr/local/kong/declarative/kong.yml
-      KONG_PROXY_ACCESS_LOG: /dev/stdout
-      KONG_ADMIN_ACCESS_LOG: /dev/stdout
-      KONG_PROXY_ERROR_LOG: /dev/stderr
-      KONG_ADMIN_ERROR_LOG: /dev/stderr
-      KONG_ADMIN_LISTEN: '0.0.0.0:8001'
-      KONG_PROXY_LISTEN: '0.0.0.0:8000'
-    ports:
-      - "8002:8000"
-      - "8443:8443"
-      - "8001:8001"
-      - "8444:8444"
-    volumes:
-      - ./kong/kong.yml:/usr/local/kong/declarative/kong.yml:ro
-    depends_on:
-      - user-service
-      - face-recognition-service
-    restart: unless-stopped
-    networks:
-      - facesocial-network
-
-  # User Service
-  user-service:
-    build: ./user-service
-    container_name: facesocial-user-service
-    ports:
-      - "3001:3001"
-    environment:
-      DATABASE_URL: "postgresql://postgres:Boss.1212@postgres:5432/facesocial"
-      JWT_SECRET: "your-super-secret-jwt-key-change-this-in-production"
-      PORT: 3001
-    depends_on:
-      - postgres
-      - redis
-    restart: unless-stopped
-    networks:
-      - facesocial-network
-
-  # Post Service
-  post-service:
-    build: ./post-service
-    container_name: facesocial-post-service
-    ports:
-      - "3004:3004"
-    environment:
-      DATABASE_URL: "postgresql://postgres:Boss.1212@postgres:5432/facesocial"
-      JWT_SECRET: "your-super-secret-jwt-key-change-this-in-production"
-      REDIS_URL: "redis://redis:6379"
-      FACE_SERVICE_URL: "http://face-recognition-service:3002"
-      DEEPFAKE_SERVICE_URL: "http://deepfake-detection-service:8000"
-      PORT: 3004
-    depends_on:
-      - postgres
-      - redis
-      - face-recognition-service
-      - deepfake-detection-service
-    restart: unless-stopped
-    networks:
-      - facesocial-network
-
-  # Chat Service
-  chat-service:
-    build: ./chat-service
-    container_name: facesocial-chat-service
-    ports:
-      - "3005:3005"
-    environment:
-      DATABASE_URL: "postgresql://postgres:Boss.1212@postgres:5432/facesocial"
-      JWT_SECRET: "your-super-secret-jwt-key-change-this-in-production"
-      REDIS_URL: "redis://redis:6379"
-      PORT: 3005
-    depends_on:
-      - postgres
       - redis
     restart: unless-stopped
     networks:
@@ -215,12 +44,25 @@ services:
     networks:
       - facesocial-network
 
+  # CCTV Face Recognition Service
+  cctv-service:
+    build: ./cctv-service
+    container_name: facesocial-cctv-service
+    ports:
+      - "8003:8003"
+    environment:
+      - PORT=8003
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
+      - FACE_SERVICE_URL=http://face-recognition-service:3002
+    depends_on:
+      - redis
+      - face-recognition-service
+    restart: unless-stopped
+    networks:
+      - facesocial-network
+
 networks:
   facesocial-network:
     driver: bridge
-
-volumes:
-  postgres-data:
-  milvus-data:
-  etcd-data:
-  minio-data:
