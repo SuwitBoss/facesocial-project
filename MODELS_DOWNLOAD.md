@@ -1,31 +1,29 @@
 # 🤖 FaceSocial AI Models & Test Images Download
 
-เนื่องจากไฟล์ AI Models และรูปภาพทดสอบมีขนาดใหญ่ (รวม 1.6 GB) จึงไม่ได้รวมอยู่ใน Git repository นี้
+เนื่องจากไฟล์ AI Models และรูปภาพทดสอบมีขนาดใหญ่ (รวม ~1.0 GB) จึงไม่ได้รวมอยู่ใน Git repository นี้
 
 ## 📦 ไฟล์ที่ต้องดาวน์โหลดเพิ่มเติม
 
-### 🧠 AI Models (ขนาดรวม ~1.4 GB)
+### 🧠 AI Models (ขนาดรวม ~900 MB)
 
 **Face Recognition Models:**
-- `model/face-recognition/adaface_ir101.onnx` (249 MB)
-- `model/face-recognition/arcface_r100.onnx` (249 MB) 
-- `model/face-recognition/facenet_vggface2.onnx` (89 MB)
+- `adaface_ir101.onnx` (249 MB) - โมเดลหลักสำหรับ Face Recognition
+- `arcface_r100.onnx` (249 MB) - โมเดลสำรองสำหรับ Face Recognition 
+- `facenet_vggface2.onnx` (89 MB) - โมเดล lightweight สำหรับ Face Recognition
 
 **Deepfake Detection Models:**
-- `model/deepfake-detection/model.onnx` (327 MB)
-- `model/deepfake-detection/model_fp16.onnx` (164 MB)
-- `model/deepfake-detection/model_int8.onnx` (83 MB)
-- และไฟล์ model อื่นๆ
+- `model.onnx` (44 MB) - โมเดลตรวจจับ Deepfake
 
 **Face Detection Models:**
-- `model/face-detection/yolov10n-face.onnx`
-- `model/face-detection/yolov11n-face.onnx`
-- `model/face-detection/yolov8n-face.onnx`
-- `model/face-detection/yolov8s-face-lindevs.onnx`
+- `yolov5s-face.onnx` (27 MB) - YOLO Face Detection โมเดล
+- `yolov10n-face.onnx` (9 MB) - YOLO v10 Face Detection โมเดล
 
-**Anti-Spoofing & Gender-Age Models:**
-- `model/anti-spoofing/anti-spoof-mn3.onnx`
-- `model/gender-age/genderage.onnx`
+**Anti-Spoofing Models:**
+- `AntiSpoofing_bin_1.5_128.onnx` (1.8 MB) - Anti-Spoofing Binary
+- `AntiSpoofing_print-replay_1.5_128.onnx` (1.8 MB) - Anti-Spoofing Print/Replay
+
+**Gender & Age Detection:**
+- `genderage.onnx` (1.3 MB) - Gender และ Age Detection โมเดล
 
 ### 🖼️ Test Images (~200 MB)
 

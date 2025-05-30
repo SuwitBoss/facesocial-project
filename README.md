@@ -74,14 +74,19 @@ cd facesocial-project
 ```
 
 ### 2. Download AI Models & Test Images
-⚠️ **ไฟล์ AI Models และรูปภาพทดสอบไม่ได้รวมใน repository นี้เนื่องจากมีขนาดใหญ่ (1.6 GB)**
+⚠️ **ไฟล์ AI Models และรูปภาพทดสอบไม่ได้รวมใน repository นี้เนื่องจากมีขนาดใหญ่ (1.0+ GB)**
 
 📥 **ดูวิธีการดาวน์โหลดได้ที่:** [MODELS_DOWNLOAD.md](MODELS_DOWNLOAD.md)
 
+**ไฟล์ที่ต้องดาวน์โหลดเพิ่มเติม:**
+- 🧠 **AI Models** (~1.0 GB): Face Recognition, Deepfake Detection, Anti-Spoofing, Gender-Age
+- 🖼️ **Test Images** (~50 MB): ภาพทดสอบสำหรับแต่ละ AI service
+- 📦 **Model Configs**: Configuration files สำหรับแต่ละโมเดล
+
 **ตัวเลือกการดาวน์โหลด:**
-- 🔗 Google Drive: [Download Models](https://drive.google.com/your-link)
-- 🤗 Hugging Face: [Download from HF](https://huggingface.co/SuwitBoss/facesocial-models)
-- 📦 GitHub Releases: [Download from Releases](https://github.com/SuwitBoss/facesocial-project/releases)
+- 📦 **GitHub Releases**: [Download from Releases](https://github.com/SuwitBoss/facesocial-project/releases) (แนะนำ)
+- 🔗 **Direct Download**: ลิงก์ดาวน์โหลดโดยตรงใน [MODELS_DOWNLOAD.md](MODELS_DOWNLOAD.md)
+- 🤗 **Hugging Face**: [SuwitBoss/facesocial-models](https://huggingface.co/SuwitBoss/facesocial-models)
 
 ### 3. Start AI Services
 ```bash
