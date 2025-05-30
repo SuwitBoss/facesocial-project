@@ -1,0 +1,386 @@
+services:
+  # === FACE DETECTION PIPELINE (3-Stage) ===
+  
+  # 1. MediaPipe - Pre-detection (Fast Screening) - 400MB
+  mediapipe-predetection:
+    build:
+      context: ./mediapipe
+      dockerfile: Dockerfile
+    image: facesocial/mediapipe:cuda12.9
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=0
+      - CUDA_MEM_LIMIT=400m
+      - DETECTION_CONFIDENCE=0.3
+      - MODEL_SELECTION=0
+      - MAX_NUM_FACES=10
+      - BATCH_SIZE=8
+      - SERVICE_NAME=mediapipe-predetection
+      - CUDA_VERSION=12.9.0
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              capabilities: [gpu]
+              options:
+                memory: 400M
+    ports:
+      - "8001:5000"
+    volumes:
+      - ../test-image:/app/test-images:ro
+      - ./config:/app/config:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+    networks:
+      - facesocial-ai-network
+
+  # 2. YOLOv10n - Main Detection (Primary) - 800MB
+  yolo10-main-detection:
+    build:
+      context: ./yolo-detection
+      dockerfile: Dockerfile
+    image: facesocial/yolo10:latest
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=0
+      - CUDA_MEM_LIMIT=800m
+      - MODEL_TYPE=yolov10n
+      - MODEL_PATH=/app/models/yolov10n-face.onnx
+      - BATCH_SIZE=3
+      - CONFIDENCE_THRESHOLD=0.25
+      - INPUT_SIZE=640
+      - IOU_THRESHOLD=0.45
+      - SERVICE_NAME=yolo10-main-detection
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              capabilities: [gpu]
+              options:
+                memory: 800M
+    ports:
+      - "8002:5000"
+    volumes:
+      - ../model/face-detection:/app/models:ro
+      - ../test-image:/app/test-images:ro
+      - ./config:/app/config:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+    depends_on:
+      - mediapipe-predetection
+    networks:
+      - facesocial-ai-network
+
+  # 3. MTCNN - Precision Detection (Final) - 600MB
+  mtcnn-precision:
+    build:
+      context: ./mtcnn
+      dockerfile: Dockerfile
+    image: facesocial/mtcnn:latest
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=0
+      - CUDA_MEM_LIMIT=600m
+      - MIN_FACE_SIZE=20
+      - SCALE_FACTOR=0.7
+      - THRESHOLDS=0.6,0.7,0.8
+      - BATCH_SIZE=2
+      - SERVICE_NAME=mtcnn-precision
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              capabilities: [gpu]
+              options:
+                memory: 600M
+    ports:
+      - "8003:5000"
+    volumes:
+      - ../test-image:/app/test-images:ro
+      - ./config:/app/config:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+    depends_on:
+      - yolo10-main-detection
+    networks:
+      - facesocial-ai-network
+
+  # === ANALYSIS SERVICES ===
+
+  # 4. Face Recognition (Ensemble: AdaFace+FaceNet+ArcFace) - 1.5GB
+  face-recognition:
+    build:
+      context: ./face-recognition
+      dockerfile: Dockerfile
+    image: facesocial/face-recognition:latest
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=0
+      - CUDA_MEM_LIMIT=1536m
+      - ENSEMBLE_MODE=true
+      - ADAFACE_MODEL=/app/models/adaface_ir101.onnx
+      - FACENET_MODEL=/app/models/facenet_vggface2.onnx
+      - ARCFACE_MODEL=/app/models/arcface_r100.onnx
+      - ENSEMBLE_WEIGHTS=0.25,0.5,0.25
+      - BATCH_SIZE=2
+      - SIMILARITY_THRESHOLD=0.6
+      - SERVICE_NAME=face-recognition
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              capabilities: [gpu]
+              options:
+                memory: 1536M
+    ports:
+      - "8004:5000"
+    volumes:
+      - ../model/face-recognition:/app/models:ro
+      - ../test-image:/app/test-images:ro
+      - ./config:/app/config:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+    networks:
+      - facesocial-ai-network
+
+  # 5. Anti-spoof (MN3 MobileNetV3) - 300MB
+  antispoof-service:
+    build:
+      context: ./antispoof
+      dockerfile: Dockerfile
+    image: facesocial/antispoof:latest
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=0
+      - CUDA_MEM_LIMIT=300m
+      - MODEL_PATH=/app/models/anti-spoof-mn3.onnx
+      - INPUT_SIZE=128
+      - BATCH_SIZE=4
+      - CONFIDENCE_THRESHOLD=0.5
+      - SERVICE_NAME=antispoof-service
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              capabilities: [gpu]
+              options:
+                memory: 300M
+    ports:
+      - "8005:5000"
+    volumes:
+      - ../model/anti-spoofing:/app/models:ro
+      - ../test-image:/app/test-images:ro
+      - ./config:/app/config:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+    networks:
+      - facesocial-ai-network
+
+  # 6. Gender & Age Detection - 400MB
+  gender-age-service:
+    build:
+      context: ./gender-age
+      dockerfile: Dockerfile
+    image: facesocial/gender-age:latest
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=0
+      - CUDA_MEM_LIMIT=400m
+      - MODEL_PATH=/app/models/genderage.onnx
+      - BATCH_SIZE=3
+      - INPUT_SIZE=224
+      - SERVICE_NAME=gender-age-service
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              capabilities: [gpu]
+              options:
+                memory: 400M
+    ports:
+      - "8006:5000"
+    volumes:
+      - ../model/gender-age:/app/models:ro
+      - ../test-image:/app/test-images:ro
+      - ./config:/app/config:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+    networks:
+      - facesocial-ai-network
+
+  # 7. Deepfake Detection (ViT-based) - 3GB  
+  deepfake-detection:
+    build:
+      context: ./deepfake
+      dockerfile: Dockerfile
+    image: facesocial/deepfake:latest
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=0
+      - CUDA_MEM_LIMIT=3072m
+      - MODEL_PATH=/app/models/model.onnx
+      - MODEL_VERSION=full_precision
+      - VIT_BASE_PATCH16=true
+      - INPUT_SIZE=224
+      - BATCH_SIZE=1
+      - ACCURACY_TARGET=98.84
+      - CONFIDENCE_THRESHOLD=0.5
+      - SERVICE_NAME=deepfake-detection
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              capabilities: [gpu]
+              options:
+                memory: 3072M
+    ports:
+      - "8007:5000"
+    volumes:
+      - ../model/deepfake-detection:/app/models:ro
+      - ../test-image:/app/test-images:ro
+      - ./config:/app/config:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+    networks:
+      - facesocial-ai-network
+
+  # === API GATEWAY ===
+  
+  api-gateway:
+    build:
+      context: ./api-gateway
+      dockerfile: Dockerfile
+    image: facesocial/api-gateway:latest
+    environment:
+      - MEDIAPIPE_URL=http://mediapipe-predetection:5000
+      - YOLO10_URL=http://yolo10-main-detection:5000
+      - MTCNN_URL=http://mtcnn-precision:5000
+      - FACE_RECOGNITION_URL=http://face-recognition:5000
+      - ANTISPOOF_URL=http://antispoof-service:5000
+      - GENDER_AGE_URL=http://gender-age-service:5000
+      - DEEPFAKE_URL=http://deepfake-detection:5000
+      - POSTGRES_URL=postgresql://facesocial:password123@postgres:5432/facesocial_ai
+      - REDIS_URL=redis://redis:6379/0
+      - JWT_SECRET_KEY=your-super-secret-jwt-key-change-in-production
+      - ENVIRONMENT=development
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./config:/app/config:ro
+    depends_on:
+      - mediapipe-predetection
+      - yolo10-main-detection
+      - mtcnn-precision
+      - face-recognition
+      - antispoof-service
+      - gender-age-service
+      - deepfake-detection
+      - postgres
+      - redis
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+    networks:
+      - facesocial-ai-network
+
+  # === DATABASE & CACHE ===
+
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_DB=facesocial_ai
+      - POSTGRES_USER=facesocial
+      - POSTGRES_PASSWORD=password123
+      - POSTGRES_INITDB_ARGS=--encoding=UTF-8 --lc-collate=C --lc-ctype=C
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./config/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U facesocial -d facesocial_ai"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - facesocial-ai-network
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes --maxmemory 1gb --maxmemory-policy allkeys-lru
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - facesocial-ai-network
+
+# === NETWORKS ===
+networks:
+  facesocial-ai-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.25.0.0/16
+
+# === VOLUMES ===
+volumes:
+  postgres-data:
+    driver: local
+  redis-data:
+    driver: local

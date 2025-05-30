@@ -1,0 +1,53 @@
+# Git files
+.git
+.gitignore
+
+# Python cache
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+pip-log.txt
+pip-delete-this-directory.txt
+
+# IDE files
+.vscode
+.idea
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Virtual environments
+venv
+env
+.env
+
+# Logs
+*.log
+logs/
+
+# Test files
+test/
+tests/
+*_test.py
+test_*.py
+
+# Documentation
+README.md
+docs/
+
+# Model files (these will be mounted as volumes)
+models/
+*.onnx
+*.pt
+*.pth
+
+# Temporary files
+temp/
+tmp/
+*.tmp

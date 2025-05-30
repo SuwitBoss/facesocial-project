@@ -1,0 +1,38 @@
+# Temporary .gitignore for initial upload - exclude all large files
+*.onnx
+*.h5
+*.pkl
+*.model
+*.jpg
+*.png
+*.jpeg
+*.mp4
+*.avi
+*.mov
+
+# Exclude entire model directories temporarily
+model/
+test-image/
+backend-ai-services/*/models/
+backend-ai-services/yolo-detection/*.onnx
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Logs
+*.log
+
+# Environment
+.env
+.venv/
+venv/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db

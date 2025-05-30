@@ -1,0 +1,14 @@
+# Grafana Dashboard Configuration
+apiVersion: 1
+
+providers:
+  - name: 'FaceSocial AI Dashboards'
+    orgId: 1
+    folder: 'FaceSocial AI'
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /etc/grafana/provisioning/dashboards
+    foldersFromFilesStructure: true

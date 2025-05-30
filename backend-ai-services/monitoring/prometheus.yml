@@ -1,0 +1,130 @@
+# Prometheus Configuration for FaceSocial AI Services
+# Monitoring configuration for AI microservices, GPU metrics, and system health
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'facesocial-ai'
+    environment: 'development'
+
+# Alertmanager configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: []
+
+# Load rules once and periodically evaluate them according to the global 'evaluation_interval'.
+rule_files:
+  - "alert_rules.yml"
+
+# Scrape configuration
+scrape_configs:
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+    scrape_interval: 30s
+    metrics_path: '/metrics'
+
+  # NVIDIA GPU Metrics
+  - job_name: 'nvidia-gpu'
+    static_configs:
+      - targets: ['nvidia-smi-exporter:9445']
+    scrape_interval: 10s
+    metrics_path: '/metrics'
+    params:
+      format: ['prometheus']
+
+  # API Gateway Service
+  - job_name: 'api-gateway'
+    static_configs:
+      - targets: ['api-gateway:8000']
+    scrape_interval: 15s
+    metrics_path: '/metrics'
+    params:
+      format: ['prometheus']
+
+  # MediaPipe Face Detection Service
+  - job_name: 'mediapipe-service'
+    static_configs:
+      - targets: ['mediapipe-predetection:5000']
+    scrape_interval: 15s
+    metrics_path: '/metrics'
+    params:
+      format: ['prometheus']
+
+  # YOLOv10n Face Detection Service
+  - job_name: 'yolo-detection-service'
+    static_configs:
+      - targets: ['yolo10-main-detection:5000']
+    scrape_interval: 15s
+    metrics_path: '/metrics'
+    params:
+      format: ['prometheus']
+
+  # MTCNN Face Detection Service
+  - job_name: 'mtcnn-service'
+    static_configs:
+      - targets: ['mtcnn-precision:5000']
+    scrape_interval: 15s
+    metrics_path: '/metrics'
+    params:
+      format: ['prometheus']
+
+  # Face Recognition Service
+  - job_name: 'face-recognition-service'
+    static_configs:
+      - targets: ['face-recognition:5000']
+    scrape_interval: 15s
+    metrics_path: '/metrics'
+    params:
+      format: ['prometheus']
+
+  # Anti-Spoofing Service
+  - job_name: 'antispoof-service'
+    static_configs:
+      - targets: ['antispoof-service:5000']
+    scrape_interval: 15s
+    metrics_path: '/metrics'
+    params:
+      format: ['prometheus']
+
+  # Gender & Age Detection Service
+  - job_name: 'gender-age-service'
+    static_configs:
+      - targets: ['gender-age-service:5000']
+    scrape_interval: 15s
+    metrics_path: '/metrics'
+    params:
+      format: ['prometheus']
+
+  # Deepfake Detection Service
+  - job_name: 'deepfake-service'
+    static_configs:
+      - targets: ['deepfake-detection:5000']
+    scrape_interval: 15s
+    metrics_path: '/metrics'
+    params:
+      format: ['prometheus']
+
+  # PostgreSQL Database Metrics
+  - job_name: 'postgres'
+    static_configs:
+      - targets: ['postgres:5432']
+    scrape_interval: 30s
+    metrics_path: '/metrics'
+
+  # Redis Cache Metrics
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis:6379']
+    scrape_interval: 30s
+    metrics_path: '/metrics'
+
+  # Docker Container Metrics (if cAdvisor is running)
+  - job_name: 'docker-containers'
+    static_configs:
+      - targets: ['cadvisor:8080']
+    scrape_interval: 30s
+    metrics_path: '/metrics'

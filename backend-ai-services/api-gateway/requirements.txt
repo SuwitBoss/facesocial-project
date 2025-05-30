@@ -1,0 +1,31 @@
+# FastAPI and Web Framework
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+python-multipart>=0.0.6
+
+# HTTP Client for Service Communication
+aiohttp>=3.9.1
+aiofiles>=23.0.0
+
+# Data Processing and Validation
+pydantic>=2.4.0
+python-json-logger>=2.0.7
+
+# Image Processing (lightweight)
+Pillow>=10.0.0
+opencv-python-headless>=4.9.0
+
+# System Monitoring
+psutil>=5.9.0
+
+# Development and Testing
+pytest==7.4.3
+pytest-asyncio==0.21.1
+httpx==0.25.2
+
+# CORS and Security
+# CORS is built into FastAPI
+
+# Utilities
+python-dotenv==1.0.0
+numpy==1.24.4
