@@ -286,6 +286,50 @@ services:
     networks:
       - facesocial-ai-network
 
+  # 8. Face Quality Assessment - 400MB
+  face-quality:
+    build:
+      context: ./face-quality
+      dockerfile: Dockerfile
+    image: facesocial/face-quality:latest
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=0
+      - CUDA_MEM_LIMIT=400m
+      - SERVICE_NAME=face-quality
+      - MODEL_PATH=/app/models/face_quality_v2.onnx
+      - MIN_FACE_SIZE=40
+      - QUALITY_THRESHOLD=0.5
+      - BATCH_SIZE=8
+      - ENABLE_GPU=true
+      - CACHE_ENABLED=true
+      - REDIS_URL=redis://redis:6379/2
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              capabilities: [gpu]
+              options:
+                memory: 400M
+    ports:
+      - "8008:5000"
+    volumes:
+      - ../model/face-quality:/app/models:ro
+      - ../test-image:/app/test-images:ro
+      - ./config:/app/config:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+    networks:
+      - facesocial-ai-network
+    depends_on:
+      - redis
+
   # === API GATEWAY ===
   
   api-gateway:
