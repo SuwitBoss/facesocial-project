@@ -19,10 +19,13 @@
 *.mkv
 
 # Large model directories (download separately)
-model/
-test-image/
+/model/
+/test-image/
 backend-ai-services/*/models/
 backend-ai-services/yolo-detection/*.onnx
+
+# Allow documentation in doc/model/
+!/doc/model/
 
 # Python cache
 __pycache__/
